@@ -3,28 +3,49 @@
  */
 package org.soc.sonices;
 
-import javax.sound.midi.InvalidMidiDataException;
+import co.elastic.clients.elasticsearch.core.SearchResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import javax.sound.midi.*;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Properties;
 
 public class SonicESApp {
+    private static Logger LOGGER = LogManager.getLogger(SonicESApp.class);
 
-    public static void main(String[] args) throws InvalidMidiDataException, InterruptedException {
-        MidiHandler mh = null;
+    private static final String CONFIGFILE = "sonices.conf";
+
+
+    public static void main(String[] args) throws InvalidMidiDataException, InterruptedException, IOException, MidiUnavailableException {
+        MidiHandler mh = new MidiHandler("Bus 1");
+        Sequencer sequencer = MidiSystem.getSequencer(false);
+        sequencer.getTransmitter().setReceiver(mh.receiver);
+
+
+        // query part
+        Properties configuration = new Properties();
         try {
-            // open midi target device here, configure to match your device, e.g. list devices using
-            // MidiDeviceDisplay utility in this package
-            mh = new MidiHandler("Bus 1");
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            configuration.load(new FileInputStream(CONFIGFILE));
+        } catch (IOException e) {
+            LOGGER.error("Cannot read configuration file" + CONFIGFILE + ", aborting...");
+            System.exit(1);
         }
 
-        mh.send(40, 93, 300);
-        mh.send(60, 93, 100);
-        mh.send(45, 93, 3000);
-        while (mh.messagesPending() > 0) {
-            // busy wait
-            Thread.sleep(500);
-        }
+        ESClient client = new ESClient(configuration);
+        SearchResponse<Void> response = LogLevel5mSketch.queryForLofLevels(client);
+        Sequence sequence = LogLevel5mSketch.convertToSequence(response);
+
+        sequencer.setSequence(sequence);
+        LOGGER.info("start sequence");
+        sequencer.open();
+        sequencer.start();
+        Thread.sleep(5 * 60 * 1000);
+        LOGGER.info("stop sequence");
+        sequencer.close();
         mh.close();
+
         System.exit(0);
     }
 }

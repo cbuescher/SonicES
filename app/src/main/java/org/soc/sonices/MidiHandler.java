@@ -16,39 +16,29 @@ public class MidiHandler {
 
     private static final Logger LOGGER = LogManager.getLogger(MidiHandler.class);
     private final MidiDevice device;
-    private final Receiver receiver;
+    final Receiver receiver;
 
     private List<ScheduledFuture> notesPending = new ArrayList<>();
 
     private final ScheduledExecutorService executor =
             Executors.newScheduledThreadPool(4);
 
-    public MidiHandler(String midiInDeviceName) throws InterruptedException {
+    public MidiHandler(String midiInDeviceName) throws MidiUnavailableException {
         MidiDevice.Info[] infos = MidiSystem.getMidiDeviceInfo();
 
         // go through devices searching for a MIDI input with the specified name
         MidiDevice deviceCandidate = null;
         for (MidiDevice.Info info : infos) {
-            try {
-                deviceCandidate = MidiSystem.getMidiDevice(info);
-                if (deviceCandidate.getMaxReceivers() == 0 || (deviceCandidate.getDeviceInfo().getName().equals(midiInDeviceName)) == false) {
-                    continue;
-                }
-                break;
-            } catch (MidiUnavailableException e) {
-                throw new RuntimeException(e);
+            deviceCandidate = MidiSystem.getMidiDevice(info);
+            if (deviceCandidate.getMaxReceivers() == 0 || (deviceCandidate.getDeviceInfo().getName()
+                    .equals(midiInDeviceName)) == false) {
+                continue;
             }
+            break;
         }
         this.device = deviceCandidate;
-        try {
-            this.device.open();
-            this.receiver = this.device.getReceiver();
-        } catch (MidiUnavailableException e) {
-            if (this.device != null) {
-                device.close();
-            }
-            throw new RuntimeException(e);
-        }
+        this.device.open();
+        this.receiver = this.device.getReceiver();
     }
 
     public void send(int note, int velocity, long duration) throws InvalidMidiDataException {
