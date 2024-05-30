@@ -3,7 +3,6 @@
  */
 package org.soc.sonices;
 
-import co.elastic.clients.elasticsearch.core.SearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -11,18 +10,19 @@ import javax.sound.midi.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
+import static java.time.Instant.ofEpochMilli;
 
 public class SonicESApp {
     private static Logger LOGGER = LogManager.getLogger(SonicESApp.class);
 
     private static final String CONFIGFILE = "sonices.conf";
 
-
     public static void main(String[] args) throws InvalidMidiDataException, InterruptedException, IOException, MidiUnavailableException {
         MidiHandler mh = new MidiHandler("Bus 1");
         Sequencer sequencer = MidiSystem.getSequencer(false);
         sequencer.getTransmitter().setReceiver(mh.receiver);
-
 
         // query part
         Properties configuration = new Properties();
@@ -34,14 +34,20 @@ public class SonicESApp {
         }
 
         ESClient client = new ESClient(configuration);
-        SearchResponse<Void> response = LogLevel5mSketch.queryForLofLevels(client);
-        Sequence sequence = LogLevel5mSketch.convertToSequence(response);
+        Sequence sequence = new Sequence(Sequence.SMPTE_25, 40);
+
+        long now = System.currentTimeMillis();
+        long start = now - TimeUnit.MINUTES.toMillis(1);
+        LOGGER.info("Getting log level data from " + ofEpochMilli(start) + " to " + ofEpochMilli(now));
+
+        LogLevelSketches.mapToDensity(LogLevelSketches.queryForLogLevels(client, "WARN", now, start), sequence, new Note(69, 0, 93));
+        LogLevelSketches.mapToDensity(LogLevelSketches.queryForLogLevels(client, "DEBUG", now, start), sequence, new Note(52, 1, 70));
 
         sequencer.setSequence(sequence);
         LOGGER.info("start sequence");
         sequencer.open();
         sequencer.start();
-        Thread.sleep(5 * 60 * 1000);
+        Thread.sleep(65 * 1000);
         LOGGER.info("stop sequence");
         sequencer.close();
         mh.close();
