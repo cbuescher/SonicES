@@ -4,3 +4,5 @@ Playground for connecting some ES generated data to a sound output device via MI
 
 https://github.com/cbuescher/SonicES/assets/10398885/216051b5-cd98-48da-abb2-e0a66bb72287
 
+<img src="https://github.com/cbuescher/SonicES/assets/10398885/216051b5-cd98-48da-abb2-e0a66bb72287" width="200" height="50">
+
