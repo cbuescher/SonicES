@@ -17,7 +17,7 @@ import java.util.List;
 
 public class LogLevelSketches {
 
-    public static SearchResponse<Void> queryForLogLevels(ESClient client, String level, long now, long start) throws IOException {
+    public static SearchResponse<Void> queryForLogLevels(ESClient client, String level, long start, long now) throws IOException {
         Query query = BoolQuery.of(
             m -> m.filter(
                 MatchPhraseQuery.of(mp -> mp.field("data_stream.dataset").query("elasticsearch.log"))._toQuery(),
@@ -27,7 +27,7 @@ public class LogLevelSketches {
         return client.getClient()
             .search(
                 b -> b.index("serverless-logging-*:logs-elasticsearch*")
-                    .size(100)
+                    .size(0)
                     .query(query)
                     .aggregations(
                         "0",
@@ -53,13 +53,13 @@ public class LogLevelSketches {
         long binSizeTicks = 1000;
         List<DateHistogramBucket> bins = response.aggregations().get("0").dateHistogram().buckets().array();
         long offset = bins.get(0).key();
-        for (DateHistogramBucket b2 : bins) {
-            if (b2.docCount() > 0) {
-                long events = b2.docCount();
+        for (DateHistogramBucket bucket : bins) {
+            if (bucket.docCount() > 0) {
+                long events = bucket.docCount();
                 long eventDistance = binSizeTicks / events;  // i.e for 4 events 1250
                 long eventDuration = Math.min(150, eventDistance * 90 / 100);  // at least 10% shorter than event frequency
                 for (int e = 0; e < events; e++) {
-                    long tick = (b2.key() - offset) + (e * eventDistance);
+                    long tick = (bucket.key() - offset) + (e * eventDistance);
                     track.add(new MidiEvent(new ShortMessage(ShortMessage.NOTE_ON, note.channel(), note.note(), note.velocity()), tick));
                     track.add(
                         new MidiEvent(

@@ -3,6 +3,7 @@
  */
 package org.soc.sonices;
 
+import co.elastic.clients.elasticsearch.core.SearchResponse;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -22,6 +23,7 @@ public class SonicESApp {
     public static void main(String[] args) throws InvalidMidiDataException, InterruptedException, IOException, MidiUnavailableException {
         MidiHandler mh = new MidiHandler("Bus 1");
         Sequencer sequencer = MidiSystem.getSequencer(false);
+        sequencer.open();
         sequencer.getTransmitter().setReceiver(mh.receiver);
 
         // query part
@@ -32,26 +34,51 @@ public class SonicESApp {
             LOGGER.error("Cannot read configuration file" + CONFIGFILE + ", aborting...");
             System.exit(1);
         }
-
         ESClient client = new ESClient(configuration);
-        Sequence sequence = new Sequence(Sequence.SMPTE_25, 40);
 
+        Sequence sequence = null;
+        // sequence = experiment1(client);
+        sequence = experiment2(client);
+        sequencer.setSequence(sequence);
+
+        LOGGER.info("start sequencer");
+        sequencer.start();
+        Thread.sleep(sequencer.getMicrosecondLength() / 1000 + 1000);
+        LOGGER.info("stop sequencer");
+        sequencer.close();
+        mh.close();
+        System.exit(0);
+    }
+
+    static Sequence experiment1(ESClient client) throws IOException, InvalidMidiDataException {
+        Sequence sequence = new Sequence(Sequence.SMPTE_25, 40);
         long now = System.currentTimeMillis();
         long start = now - TimeUnit.MINUTES.toMillis(1);
         LOGGER.info("Getting log level data from " + ofEpochMilli(start) + " to " + ofEpochMilli(now));
 
-        LogLevelSketches.mapToDensity(LogLevelSketches.queryForLogLevels(client, "WARN", now, start), sequence, new Note(69, 0, 93));
-        LogLevelSketches.mapToDensity(LogLevelSketches.queryForLogLevels(client, "DEBUG", now, start), sequence, new Note(52, 1, 70));
+        LogLevelSketches.mapToDensity(LogLevelSketches.queryForLogLevels(client, "WARN", start, now), sequence, new Note(69, 0, 93));
+        LogLevelSketches.mapToDensity(LogLevelSketches.queryForLogLevels(client, "DEBUG", start, now), sequence, new Note(52, 1, 70));
+        return sequence;
+    }
 
-        sequencer.setSequence(sequence);
-        LOGGER.info("start sequence");
-        sequencer.open();
-        sequencer.start();
-        Thread.sleep(65 * 1000);
-        LOGGER.info("stop sequence");
-        sequencer.close();
-        mh.close();
+    /**
+     * Get Response Latency Percentiles (50p) in 1sec bins and control some filter with it
+     * https://overview.qa.cld.elstc.co/app/r/s/uSCKD
+     */
+    static Sequence experiment2(ESClient client) throws IOException, InvalidMidiDataException {
+        Sequence sequence = new Sequence(Sequence.SMPTE_25, 40);
+        long now = 1717016881327L;
+        long start = 1717016817963L;
+        LOGGER.info("Getting log level data from " + ofEpochMilli(start) + " to " + ofEpochMilli(now));
 
-        System.exit(0);
+        SearchResponse<Void> response = ResponseLatencySketch.query(client, start, now);
+        ResponseLatencySketch.mapToCC(response, sequence);
+
+        // Track track = sequence.createTrack();
+        // Scaler s = new Scaler(0, 25, 60, 90);
+        // for (int i = 0; i < 127; i++) {
+        // track.add(new MidiEvent(new ShortMessage(ShortMessage.CONTROL_CHANGE, 2, 1, Math.round(s.scale(i))), i * 20));
+        // }
+        return sequence;
     }
 }
