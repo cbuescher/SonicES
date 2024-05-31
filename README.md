@@ -28,4 +28,27 @@ https://github.com/cbuescher/SonicES/assets/10398885/32b6fa4e-f510-40c9-aef4-595
 
 https://github.com/cbuescher/SonicES/assets/10398885/d60237c6-0990-4970-95b1-bea6190a7954
 
+### Mapping GC overhead info and warn messages to sample
+
+The idea here is to take long GC log events of the form `[gc][10803] overhead, spent [1.5s] collecting in the last [1.9s]` from the JvmGcMonitorService logger, 
+parse them to get the exact long GC duration in ms (or seconds) and play a sample (some modem dial-up sound in this case to have something harsh) for the same duration,
+also to play them in the same distance the events occurred in real-time.
+
+Two examples from QA evnironment in some less dense / more dense minute long period. Most of the time on QA there are almost no events, so this would be a relatively low-traffic
+channel that could be overlayed with other information.
+
+#### Lower density
+![Screenshot 2024-05-31 at 10 49 21](https://github.com/cbuescher/SonicES/assets/10398885/2530719e-ace1-4ae9-afec-9a33bd916367)
+
+
+
+https://github.com/cbuescher/SonicES/assets/10398885/09aaed8b-ea8d-44d4-a42d-d80388b2442d
+
+
+#### Higher density
+![Screenshot 2024-05-31 at 10 48 43](https://github.com/cbuescher/SonicES/assets/10398885/3758e5c1-8ee7-4c03-b683-5f2f26708c3c)
+
+
+
+https://github.com/cbuescher/SonicES/assets/10398885/701cbdf6-82c3-496e-b4ba-af005d7d3bc9
 
